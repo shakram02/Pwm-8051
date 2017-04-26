@@ -1,0 +1,166 @@
+C51 COMPILER V9.54   MAIN                                                                  04/26/2017 07:35:36 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(1,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main
+                    -.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include <at89c51xd2.h>
+   2          #include <stdio.h>
+   3          
+   4          #define PERIOD_MICROS (22.1184/12)  /* 8051 cycle time in microseconds */
+   5          #define BYTE_SIZE 8
+   6          #define TO_MIRCOS 1000000 /* 10^6 to convert time in secs to micros */
+   7          #define FREQ_500HZ_MICROS 2000  /* 500Hz frequency in microseconds */
+   8          sbit led = P2^0; /* Use P2.0 for your output generated signal. */
+   9          sbit error_led = P2^6;
+  10          sbit output_ctl = P2^7; /* P2.7 to turn the output signal ON and OFF */
+  11          
+  12          typedef struct TIMER_VALS{
+  13            short th;
+  14            short tl;
+  15          }TIMER_VALS;
+  16          
+  17          int calc_micros_config(int micros,TIMER_VALS* tv);
+  18          char duty_cycle(unsigned char percent);
+  19          int to_micros(int);
+  20          void error_state();
+  21          
+  22          /* ON/OFF values for duty cycle */
+  23          TIMER_VALS tv_on;
+  24          TIMER_VALS tv_off;
+  25          
+  26          void main() using 0{
+  27   1        TIMER_VALS tv;
+  28   1        /* Timer 0 mode 1 */
+  29   1        TMOD  = 0x01;
+  30   1        
+  31   1          /* For testing correctness */
+  32   1      //  if (calc_micros_config(2000,&tv))
+  33   1      //  {
+  34   1      //    error_state();
+  35   1      //  }
+  36   1        
+  37   1        /* Mode 1 of duty cycle -> 25% */
+  38   1        if(duty_cycle(1)){
+  39   2          error_state();
+  40   2        }
+  41   1        
+  42   1        /* Port1 is used as input */
+  43   1        TR0 = 1;
+  44   1        
+  45   1        while (1){
+  46   2          
+  47   2          if(!output_ctl)continue;
+  48   2          /* Operate the timer using tv_on when it overflows, switch to tv_off */
+  49   2          TF0 = 0;
+  50   2          TH0 = tv.th;
+  51   2          TL0 = tv.tl;
+  52   2          while(TF0 == 0);
+  53   2          led = ~led;   
+  54   2          
+C51 COMPILER V9.54   MAIN                                                                  04/26/2017 07:35:36 PAGE 2   
+
+  55   2          TF0 = 0;
+  56   2          TH0 = tv.th;
+  57   2          TL0 = tv.tl;
+  58   2          while(TF0 == 0);
+  59   2          led = ~led;     
+  60   2          
+  61   2        }
+  62   1      }
+  63          
+  64          int to_micros(int hertz){
+  65   1        /* Not working, values are zeroed */
+  66   1        double val = (1/hertz);
+  67   1        unsigned long int micros= val * TO_MIRCOS;
+  68   1        return micros;
+  69   1      }
+  70          
+  71          /*
+  72            Calculates the timer values for the supplied mode of duty
+  73            cycle, the code is ugly because I couldn't create the calculations
+  74            with double values as the values in double/long operations 
+  75            were zeroed for a reason that I don't know.
+  76          */
+  77          char duty_cycle(unsigned char mode){
+  78   1        char on=1,off=1;
+  79   1        
+  80   1        if(mode == 1)
+  81   1        {
+  82   2          /*20%*/
+  83   2          on = calc_micros_config(400,&tv_on);
+  84   2          off = calc_micros_config(1600,&tv_off);
+  85   2        }
+  86   1        else if(mode == 2)
+  87   1        {
+  88   2          /*25%*/
+  89   2          on = calc_micros_config(500,&tv_on);
+  90   2          off = calc_micros_config(1500,&tv_off);
+  91   2        }
+  92   1        else if(mode == 3)
+  93   1        {
+  94   2          /*50%*/
+  95   2          on = calc_micros_config(800,&tv_on);
+  96   2          off = calc_micros_config(800,&tv_off);
+  97   2        }
+  98   1        else if(mode == 4)
+  99   1        {
+ 100   2          /*75%*/
+ 101   2          on = calc_micros_config(1500,&tv_on);
+ 102   2          off = calc_micros_config(500,&tv_off);
+ 103   2        }
+ 104   1        else if(mode == 5)
+ 105   1          {
+ 106   2          /*80%*/
+ 107   2          on = calc_micros_config(1600,&tv_on);
+ 108   2          off = calc_micros_config(400,&tv_off);
+ 109   2        }   
+ 110   1        
+ 111   1        return on || off;
+ 112   1      }
+ 113          
+ 114          /* Calculates TH and TL values to generate a given delay in microseconds */
+ 115          int calc_micros_config(int micros,TIMER_VALS* tv){
+ 116   1        /* Get the number of increments required */
+C51 COMPILER V9.54   MAIN                                                                  04/26/2017 07:35:36 PAGE 3   
+
+ 117   1        int incr = micros * PERIOD_MICROS;
+ 118   1        int start_val;
+ 119   1        
+ 120   1        if (OV)
+ 121   1        {
+ 122   2          /* Overflow, Indicate error */
+ 123   2          OV = 0;
+ 124   2          return -1;
+ 125   2        }
+ 126   1        
+ 127   1        start_val = 0xFFFF - incr;
+ 128   1        tv->tl = start_val & 0x00FF;  /* The LOW part of the delay */
+ 129   1        tv->th = ((start_val & 0xFF00) >> BYTE_SIZE); /* The HIGH part of the delay */
+ 130   1          
+ 131   1        return 0;
+ 132   1      }
+ 133          
+ 134          void error_state(){
+ 135   1          TMOD = 0x00;
+ 136   1          error_led = 1;
+ 137   1          while(1);
+ 138   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    443    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     34    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
