@@ -9,11 +9,17 @@ sbit led = P2^0; /* Use P2.0 for your output generated signal. */
 sbit error_led = P2^6;
 sbit output_ctl = P2^7; /* P2.7 to turn the output signal ON and OFF */
 
+/* Adjust mode */
+sbit adjust_mode= P2^5;
+sbit adjust_led = P2^4;
+
 typedef struct TIMER_VALS{
-	short th;
-	short tl;
+	char th;
+	char tl;
 }TIMER_VALS;
 
+void adjust_state();
+void output_half_cycle(TIMER_VALS* tv);
 int calc_micros_config(int micros,TIMER_VALS* tv);
 char duty_cycle(unsigned char percent);
 int to_micros(int);
@@ -23,42 +29,58 @@ void error_state();
 TIMER_VALS tv_on;
 TIMER_VALS tv_off;
 
+void init(){
+	P1 = 0;
+	P2 = 0;
+	output_ctl = 1;
+}
+
 void main() using 0{
-	TIMER_VALS tv;
 	/* Timer 0 mode 1 */
+	init();
 	TMOD 	= 0x01;
 	
-		/* For testing correctness */
-	if (calc_micros_config(2000,&tv))
-	{
-		error_state();
-	}
 	
-	/* Mode 1 of duty cycle -> 25% */
-//	if(duty_cycle(1)){
+		/* For testing correctness */
+//	if (calc_micros_config(2000,&tv))
+//	{
 //		error_state();
 //	}
 	
+	/* Mode 1 of duty cycle -> 25% */
+	if(duty_cycle(5)){
+		error_state();
+	}
+	
 	/* Port1 is used as input */
 	TR0 = 1;
-	
-	while (1){
+	led = 0;
+	while(1){
+		/*output_ctl*/
+		while (!adjust_mode){
+			/* Operate the timer using tv_on when it overflows, switch to tv_off */
+//			TF0 = 0;
+//			TH0 = tv_off.th;
+//			TL0 = tv_off.tl;
+//			while(TF0 == 0);
+//			led = ~led;		
+			output_half_cycle(&tv_off);
+			output_half_cycle(&tv_on);
+		}
 		
-		if(!output_ctl)continue;
-		/* Operate the timer using tv_on when it overflows, switch to tv_off */
-		TF0 = 0;
-		TH0 = tv.th;
-		TL0 = tv.tl;
-		while(TF0 == 0);
-		led = ~led;		
-		
-		TF0 = 0;
-		TH0 = tv.th;
-		TL0 = tv.tl;
-		while(TF0 == 0);
-		led = ~led;			
-		
+		if(adjust_mode){
+			adjust_state();
+		}
 	}
+	
+}
+
+void output_half_cycle(TIMER_VALS* tv){
+	TF0 = 0;
+	TH0 = tv->th;
+	TL0 = tv->tl;
+	while(TF0 == 0);
+	led = ~led;			
 }
 
 int to_micros(int hertz){
@@ -66,6 +88,11 @@ int to_micros(int hertz){
 	double val = (1/hertz);
 	unsigned long int	micros= val * TO_MIRCOS;
 	return micros;
+}
+
+void adjust_state(){
+	/* TODO */ 
+	return ;
 }
 
 /*
