@@ -1,4 +1,4 @@
-BL51 BANKED LINKER/LOCATER V6.22                                                        04/26/2017  08:09:29  PAGE 1
+BL51 BANKED LINKER/LOCATER V6.22                                                        04/26/2017  22:05:46  PAGE 1
 
 
 BL51 BANKED LINKER/LOCATER V6.22, INVOKED BY:
@@ -11,6 +11,7 @@ MEMORY MODEL: SMALL WITH FLOATING POINT ARITHMETIC
 INPUT MODULES INCLUDED:
   .\Objects\main.obj (MAIN)
   C:\KEIL_V5\C51\LIB\C51FPS.LIB (?C?FPMUL)
+  C:\KEIL_V5\C51\LIB\C51FPS.LIB (?C?FPDIV)
   C:\KEIL_V5\C51\LIB\C51FPS.LIB (?C?FCAST)
   C:\KEIL_V5\C51\LIB\C51FPS.LIB (?C?CASTF)
   C:\KEIL_V5\C51\LIB\C51FPS.LIB (?C?FPGETOPN)
@@ -19,6 +20,7 @@ INPUT MODULES INCLUDED:
   C:\KEIL_V5\C51\LIB\C51S.LIB (?C?CLDOPTR)
   C:\KEIL_V5\C51\LIB\C51S.LIB (?C?CSTPTR)
   C:\KEIL_V5\C51\LIB\C51S.LIB (?C?CSTOPTR)
+  C:\KEIL_V5\C51\LIB\C51S.LIB (?C?IMUL)
   C:\KEIL_V5\C51\LIB\C51S.LIB (?C?SIDIV)
   C:\KEIL_V5\C51\LIB\C51S.LIB (?C?LNEG)
   C:\KEIL_V5\C51\LIB\C51S.LIB (?C?UIDIV)
@@ -32,26 +34,33 @@ LINK MAP OF MODULE:  .\Objects\pwm_8051 (MAIN)
 
             * * * * * * *   D A T A   M E M O R Y   * * * * * * *
             REG     0000H     0008H     ABSOLUTE     "REG BANK 0"
-            DATA    0008H     000AH     UNIT         ?DT?_TO_MICROS?MAIN
-            DATA    0012H     0009H     UNIT         ?DT?_CALC_MICROS_CONFIG?MAIN
-            DATA    001BH     0004H     UNIT         ?DT?MAIN
-            DATA    001FH     0003H     UNIT         ?DT?_OUTPUT_HALF_CYCLE?MAIN
-            DATA    0022H     0003H     UNIT         ?DT?_DUTY_CYCLE?MAIN
-            IDATA   0025H     0001H     UNIT         ?STACK
+            DATA    0008H     000BH     UNIT         ?DT?_DUTY_CYCLE?MAIN
+            DATA    0013H     000AH     UNIT         ?DT?_TO_MICROS?MAIN
+            DATA    001DH     0009H     UNIT         ?DT?_CALC_MICROS_CONFIG?MAIN
+            DATA    0026H     0004H     UNIT         ?DT?MAIN
+            DATA    002AH     0003H     UNIT         ?DT?_OUTPUT_HALF_CYCLE?MAIN
+            DATA    002DH     0002H     UNIT         ?DT?MAIN?MAIN
+            DATA    002FH     0002H     UNIT         ?DT?_FROM_BCD?MAIN
+            DATA    0031H     0001H     UNIT         ?DT?ADJUST_STATE?MAIN
+            IDATA   0032H     0001H     UNIT         ?STACK
 
             * * * * * * *   C O D E   M E M O R Y   * * * * * * *
             CODE    0000H     0003H     ABSOLUTE     
                     0003H     07FDH                  *** GAP ***
-            CODE    0800H     02D8H     UNIT         ?C?LIB_CODE
-            CODE    0AD8H     00CFH     UNIT         ?PR?_DUTY_CYCLE?MAIN
-            CODE    0BA7H     0069H     UNIT         ?PR?_CALC_MICROS_CONFIG?MAIN
-            CODE    0C10H     0042H     UNIT         ?PR?_TO_MICROS?MAIN
-            CODE    0C52H     003CH     UNIT         ?PR?MAIN?MAIN
-            CODE    0C8EH     002CH     UNIT         ?PR?_OUTPUT_HALF_CYCLE?MAIN
-            CODE    0CBAH     000CH     UNIT         ?C_C51STARTUP
-            CODE    0CC6H     0009H     UNIT         ?PR?INIT?MAIN
-            CODE    0CCFH     0008H     UNIT         ?PR?ERROR_STATE?MAIN
-            CODE    0CD7H     0001H     UNIT         ?PR?ADJUST_STATE?MAIN
+            CODE    0800H     038AH     UNIT         ?C?LIB_CODE
+            CODE    0B8AH     0069H     UNIT         ?PR?_CALC_MICROS_CONFIG?MAIN
+            CODE    0BF3H     0064H     UNIT         ?PR?_DUTY_CYCLE?MAIN
+            CODE    0C57H     004AH     UNIT         ?PR?_TO_MICROS?MAIN
+            CODE    0CA1H     0048H     UNIT         ?PR?MAIN?MAIN
+            CODE    0CE9H     002CH     UNIT         ?PR?_OUTPUT_HALF_CYCLE?MAIN
+            CODE    0D15H     0023H     UNIT         ?PR?_FROM_BCD?MAIN
+            CODE    0D38H     0017H     UNIT         ?PR?ADJUST_STATE?MAIN
+            CODE    0D4FH     000CH     UNIT         ?C_C51STARTUP
+            CODE    0D5BH     0009H     UNIT         ?PR?INIT?MAIN
+            CODE    0D64H     0008H     UNIT         ?PR?ERROR_STATE?MAIN
+
+BL51 BANKED LINKER/LOCATER V6.22                                                      04/26/2017  22:05:46  PAGE 2
+
 
 
 
@@ -59,15 +68,13 @@ OVERLAY MAP OF MODULE:   .\Objects\pwm_8051 (MAIN)
 
 
 SEGMENT
-BL51 BANKED LINKER/LOCATER V6.22                                                      04/26/2017  08:09:29  PAGE 2
-
-
   +--> CALLED SEGMENT
 ---------------------
 ?C_C51STARTUP
   +--> ?PR?MAIN?MAIN
 
 ?PR?MAIN?MAIN
+  +--> ?PR?_TO_MICROS?MAIN
   +--> ?PR?INIT?MAIN
   +--> ?PR?_DUTY_CYCLE?MAIN
   +--> ?PR?ERROR_STATE?MAIN
@@ -75,7 +82,16 @@ SEGMENT
   +--> ?PR?ADJUST_STATE?MAIN
 
 ?PR?_DUTY_CYCLE?MAIN
+  +--> ?PR?_TO_MICROS?MAIN
   +--> ?PR?_CALC_MICROS_CONFIG?MAIN
+
+?PR?ADJUST_STATE?MAIN
+  +--> ?PR?_FROM_BCD?MAIN
+  +--> ?PR?_DUTY_CYCLE?MAIN
+  +--> ?PR?ERROR_STATE?MAIN
+
+?PR?_FROM_BCD?MAIN
+  +--> ?PR?ERROR_STATE?MAIN
 
 
 
@@ -88,146 +104,153 @@ SYMBOL TABLE OF MODULE:  .\Objects\pwm_8051 (MAIN)
   C:0000H         SYMBOL        _ICE_DUMMY_
   D:0090H         PUBLIC        P1
   D:00A0H         PUBLIC        P2
-  D:001BH         PUBLIC        tv_off
-  C:0CD7H         PUBLIC        adjust_state
+  D:0026H         PUBLIC        tv_off
+  C:0D38H         PUBLIC        adjust_state
   B:00A0H.5       PUBLIC        adjust_mode
   B:00D0H.2       PUBLIC        OV
-  C:0C52H         PUBLIC        main
-  C:0C8EH         PUBLIC        _output_half_cycle
-  D:001DH         PUBLIC        tv_on
-  C:0CCFH         PUBLIC        error_state
+  C:0CA1H         PUBLIC        main
+  C:0CE9H         PUBLIC        _output_half_cycle
+  D:0028H         PUBLIC        tv_on
+  C:0D64H         PUBLIC        error_state
   D:0089H         PUBLIC        TMOD
-  C:0CC6H         PUBLIC        init
+  C:0D5BH         PUBLIC        init
   B:00A0H.0       PUBLIC        led
-  C:0AD8H         PUBLIC        _duty_cycle
+  C:0BF3H         PUBLIC        _duty_cycle
+  C:0D15H         PUBLIC        _from_bcd
   B:00A0H.6       PUBLIC        error_led
   B:0088H.5       PUBLIC        TF0
+BL51 BANKED LINKER/LOCATER V6.22                                                      04/26/2017  22:05:46  PAGE 3
+
+
   D:008CH         PUBLIC        TH0
   D:008AH         PUBLIC        TL0
-  C:0C10H         PUBLIC        _to_micros
+  C:0C57H         PUBLIC        _to_micros
   B:0088H.4       PUBLIC        TR0
   B:00A0H.7       PUBLIC        output_ctl
-  C:0BA7H         PUBLIC        _calc_micros_config
+  C:0B8AH         PUBLIC        _calc_micros_config
   -------         PROC          INIT
-  C:0CC6H         LINE#         32
-  C:0CC6H         LINE#         33
-  C:0CC9H         LINE#         34
-  C:0CCCH         LINE#         35
-  C:0CCEH         LINE#         36
+  C:0D5BH         LINE#         37
+  C:0D5BH         LINE#         38
+  C:0D5EH         LINE#         39
+  C:0D61H         LINE#         40
+  C:0D63H         LINE#         41
   -------         ENDPROC       INIT
   -------         PROC          MAIN
-  C:0C52H         LINE#         38
-  C:0C57H         LINE#         40
-  C:0C5AH         LINE#         41
-BL51 BANKED LINKER/LOCATER V6.22                                                      04/26/2017  08:09:29  PAGE 3
-
-
-  C:0C5DH         LINE#         51
-  C:0C65H         LINE#         52
-  C:0C68H         LINE#         53
-  C:0C68H         LINE#         56
-  C:0C6AH         LINE#         57
-  C:0C6CH         LINE#         58
-  C:0C6CH         LINE#         60
-  C:0C6FH         LINE#         67
-  C:0C78H         LINE#         68
-  C:0C81H         LINE#         69
-  C:0C83H         LINE#         71
-  C:0C86H         LINE#         72
-  C:0C89H         LINE#         73
-  C:0C89H         LINE#         74
-  C:0C8BH         LINE#         76
+  -------         DO            
+  D:002DH         SYMBOL        mics
+  -------         ENDDO         
+  C:0CA1H         LINE#         43
+  C:0CA6H         LINE#         45
+  C:0CB1H         LINE#         46
+  C:0CB4H         LINE#         47
+  C:0CB7H         LINE#         50
+  C:0CC3H         LINE#         51
+  C:0CC6H         LINE#         52
+  C:0CC6H         LINE#         55
+  C:0CC8H         LINE#         56
+  C:0CCAH         LINE#         57
+  C:0CCAH         LINE#         59
+  C:0CCDH         LINE#         61
+  C:0CD6H         LINE#         62
+  C:0CDFH         LINE#         63
+  C:0CE1H         LINE#         66
+  C:0CE4H         LINE#         67
+  C:0CE6H         LINE#         68
   -------         ENDPROC       MAIN
   -------         PROC          _OUTPUT_HALF_CYCLE
-  D:001FH         SYMBOL        tv
-  C:0C8EH         LINE#         78
-  C:0C94H         LINE#         79
-  C:0C96H         LINE#         80
-  C:0CA2H         LINE#         81
-  C:0CB4H         LINE#         82
-  C:0CB7H         LINE#         83
-  C:0CB9H         LINE#         84
+  D:002AH         SYMBOL        tv
+  C:0CE9H         LINE#         74
+  C:0CEFH         LINE#         76
+  C:0CF1H         LINE#         77
+  C:0CFDH         LINE#         78
+  C:0D0FH         LINE#         79
+  C:0D12H         LINE#         80
+  C:0D14H         LINE#         82
   -------         ENDPROC       _OUTPUT_HALF_CYCLE
   -------         PROC          _TO_MICROS
-  D:0008H         SYMBOL        hertz
+  D:0013H         SYMBOL        hertz
   -------         DO            
-  D:000AH         SYMBOL        val
-  D:000EH         SYMBOL        micros
+  D:0015H         SYMBOL        val
+  D:0019H         SYMBOL        micros
   -------         ENDDO         
-  C:0C10H         LINE#         86
-  C:0C14H         LINE#         88
-  C:0C2FH         LINE#         89
-  C:0C4DH         LINE#         90
-  C:0C51H         LINE#         91
+  C:0C57H         LINE#         88
+  C:0C5BH         LINE#         91
+  C:0C7EH         LINE#         92
+  C:0C9CH         LINE#         94
+  C:0CA0H         LINE#         95
   -------         ENDPROC       _TO_MICROS
+BL51 BANKED LINKER/LOCATER V6.22                                                      04/26/2017  22:05:46  PAGE 4
+
+
   -------         PROC          ADJUST_STATE
-  C:0CD7H         LINE#         93
-  C:0CD7H         LINE#         96
-  -------         ENDPROC       ADJUST_STATE
-  -------         PROC          _DUTY_CYCLE
-  D:0022H         SYMBOL        mode
   -------         DO            
-  D:0023H         SYMBOL        on
-  D:0024H         SYMBOL        off
+  D:0031H         SYMBOL        percent
   -------         ENDDO         
-  C:0AD8H         LINE#         104
-  C:0ADAH         LINE#         105
-  C:0AE0H         LINE#         107
-  C:0AE5H         LINE#         108
-  C:0AE5H         LINE#         110
-  C:0AF4H         LINE#         111
-  C:0B03H         LINE#         112
-  C:0B06H         LINE#         113
-  C:0B0BH         LINE#         114
-BL51 BANKED LINKER/LOCATER V6.22                                                      04/26/2017  08:09:29  PAGE 4
-
-
-  C:0B0BH         LINE#         116
-  C:0B1AH         LINE#         117
-  C:0B29H         LINE#         118
-  C:0B2BH         LINE#         119
-  C:0B30H         LINE#         120
-  C:0B30H         LINE#         122
-  C:0B3FH         LINE#         123
-  C:0B4EH         LINE#         124
-  C:0B50H         LINE#         125
-  C:0B55H         LINE#         126
-  C:0B55H         LINE#         128
-  C:0B64H         LINE#         129
-  C:0B73H         LINE#         130
-  C:0B75H         LINE#         131
-  C:0B7AH         LINE#         132
-  C:0B7AH         LINE#         134
-  C:0B89H         LINE#         135
-  C:0B98H         LINE#         136
-  C:0B98H         LINE#         138
-  C:0BA6H         LINE#         139
+  C:0D38H         LINE#         101
+  C:0D38H         LINE#         104
+  C:0D3FH         LINE#         107
+  C:0D4BH         LINE#         108
+  C:0D4EH         LINE#         109
+  C:0D4EH         LINE#         112
+  -------         ENDPROC       ADJUST_STATE
+  -------         PROC          _FROM_BCD
+  D:002FH         SYMBOL        val
+  -------         DO            
+  D:0030H         SYMBOL        unpacked
+  -------         ENDDO         
+  C:0D15H         LINE#         118
+  C:0D17H         LINE#         121
+  C:0D2BH         LINE#         123
+  C:0D35H         LINE#         124
+  C:0D37H         LINE#         125
+  -------         ENDPROC       _FROM_BCD
+  -------         PROC          _DUTY_CYCLE
+  D:0008H         SYMBOL        freq
+  D:000AH         SYMBOL        percent
+  -------         DO            
+  D:000BH         SYMBOL        micros
+  D:000DH         SYMBOL        high_micros
+  D:000FH         SYMBOL        on
+  D:0010H         SYMBOL        low_micros
+  D:0012H         SYMBOL        off
+  -------         ENDDO         
+  C:0BF3H         LINE#         132
+  C:0BF9H         LINE#         134
+  C:0C04H         LINE#         138
+  C:0C1AH         LINE#         143
+  C:0C2FH         LINE#         144
+  C:0C3CH         LINE#         146
+  C:0C51H         LINE#         147
+  C:0C56H         LINE#         148
   -------         ENDPROC       _DUTY_CYCLE
   -------         PROC          _CALC_MICROS_CONFIG
-  D:0012H         SYMBOL        micros
-  D:0014H         SYMBOL        tv
+  D:001DH         SYMBOL        micros
+  D:001FH         SYMBOL        tv
   -------         DO            
-  D:0017H         SYMBOL        incr
-  D:0019H         SYMBOL        start_val
+  D:0022H         SYMBOL        incr
+  D:0024H         SYMBOL        start_val
   -------         ENDDO         
-  C:0BA7H         LINE#         142
-  C:0BB1H         LINE#         144
-  C:0BCBH         LINE#         147
-  C:0BCEH         LINE#         148
-  C:0BCEH         LINE#         150
-  C:0BD0H         LINE#         151
-  C:0BD5H         LINE#         152
-  C:0BD5H         LINE#         154
-  C:0BE2H         LINE#         155
-  C:0BF8H         LINE#         156
-  C:0C0AH         LINE#         158
-  C:0C0FH         LINE#         159
+  C:0B8AH         LINE#         152
+  C:0B94H         LINE#         155
+  C:0BAEH         LINE#         158
+  C:0BB1H         LINE#         159
+  C:0BB1H         LINE#         161
+  C:0BB3H         LINE#         162
+  C:0BB8H         LINE#         163
+  C:0BB8H         LINE#         165
+  C:0BC5H         LINE#         166
+BL51 BANKED LINKER/LOCATER V6.22                                                      04/26/2017  22:05:46  PAGE 5
+
+
+  C:0BDBH         LINE#         167
+  C:0BEDH         LINE#         169
+  C:0BF2H         LINE#         170
   -------         ENDPROC       _CALC_MICROS_CONFIG
   -------         PROC          ERROR_STATE
-  C:0CCFH         LINE#         161
-  C:0CCFH         LINE#         162
-  C:0CD2H         LINE#         163
-  C:0CD4H         LINE#         164
+  C:0D64H         LINE#         174
+  C:0D64H         LINE#         175
+  C:0D67H         LINE#         176
+  C:0D69H         LINE#         177
   -------         ENDPROC       ERROR_STATE
   -------         ENDMOD        MAIN
 
@@ -235,53 +258,58 @@ SYMBOL TABLE OF MODULE:  .\Objects\pwm_8051 (MAIN)
   C:0800H         PUBLIC        ?C?FPMUL
   -------         ENDMOD        ?C?FPMUL
 
+  -------         MODULE        ?C?FPDIV
+  C:0909H         PUBLIC        ?C?FPDIV
+  -------         ENDMOD        ?C?FPDIV
+
   -------         MODULE        ?C?FCAST
-  C:0910H         PUBLIC        ?C?FCASTC
-  C:090BH         PUBLIC        ?C?FCASTI
-  C:0906H         PUBLIC        ?C?FCASTL
-BL51 BANKED LINKER/LOCATER V6.22                                                      04/26/2017  08:09:29  PAGE 5
-
-
+  C:09B0H         PUBLIC        ?C?FCASTC
+  C:09ABH         PUBLIC        ?C?FCASTI
+  C:09A6H         PUBLIC        ?C?FCASTL
   -------         ENDMOD        ?C?FCAST
 
   -------         MODULE        ?C?CASTF
-  C:0944H         PUBLIC        ?C?CASTF
+  C:09E4H         PUBLIC        ?C?CASTF
   -------         ENDMOD        ?C?CASTF
 
   -------         MODULE        ?C?CLDPTR
-  C:09C5H         PUBLIC        ?C?CLDPTR
+  C:0A65H         PUBLIC        ?C?CLDPTR
   -------         ENDMOD        ?C?CLDPTR
 
   -------         MODULE        ?C?CLDOPTR
-  C:09DEH         PUBLIC        ?C?CLDOPTR
+  C:0A7EH         PUBLIC        ?C?CLDOPTR
   -------         ENDMOD        ?C?CLDOPTR
 
   -------         MODULE        ?C?CSTPTR
-  C:0A0BH         PUBLIC        ?C?CSTPTR
+  C:0AABH         PUBLIC        ?C?CSTPTR
   -------         ENDMOD        ?C?CSTPTR
 
   -------         MODULE        ?C?CSTOPTR
-  C:0A1DH         PUBLIC        ?C?CSTOPTR
+  C:0ABDH         PUBLIC        ?C?CSTOPTR
   -------         ENDMOD        ?C?CSTOPTR
 
+  -------         MODULE        ?C?IMUL
+  C:0ADFH         PUBLIC        ?C?IMUL
+  -------         ENDMOD        ?C?IMUL
+
   -------         MODULE        ?C?SIDIV
-  C:0A3FH         PUBLIC        ?C?SIDIV
+  C:0AF1H         PUBLIC        ?C?SIDIV
   -------         ENDMOD        ?C?SIDIV
 
   -------         MODULE        ?C?LNEG
-  C:0A75H         PUBLIC        ?C?LNEG
+  C:0B27H         PUBLIC        ?C?LNEG
   -------         ENDMOD        ?C?LNEG
+BL51 BANKED LINKER/LOCATER V6.22                                                      04/26/2017  22:05:46  PAGE 6
+
+
 
   -------         MODULE        ?C?UIDIV
-  C:0A83H         PUBLIC        ?C?UIDIV
+  C:0B35H         PUBLIC        ?C?UIDIV
   -------         ENDMOD        ?C?UIDIV
 
-*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
-    SEGMENT: ?PR?_TO_MICROS?MAIN
-
 ******************************************************************************
-* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 01F4H BYTE (24%) *
+* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 01D6H BYTE (22%) *
 ******************************************************************************
 
-Program Size: data=38.0 xdata=0 code=1243
-LINK/LOCATE RUN COMPLETE.  1 WARNING(S),  0 ERROR(S)
+Program Size: data=51.0 xdata=0 code=1391
+LINK/LOCATE RUN COMPLETE.  0 WARNING(S),  0 ERROR(S)
