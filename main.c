@@ -2,8 +2,10 @@
 
 #define PERIOD_MICROS (22.1184/12)	/* 8051 cycle time in microseconds */
 #define BYTE_SIZE 8
+#define NIBBLE_SIZE 4
 #define TO_MIRCOS 1000000	/* 10^6 to convert time in secs to micros */
 #define FREQ_500HZ_MICROS 2000	/* 500Hz frequency in microseconds */
+
 /* 
 Adjust the frequencies using this constant, 
 roughly approximated from listing file with assembly mapping
@@ -37,50 +39,52 @@ TIMER_VALS tv_off;
 void init(){
 	P1 = 0;
 	P2 = 0;
+	/*
+		P3 will be used to take the input frequency, ranges 10~990 MHz -> (1 ~ 99) in BCD * 10
+	*/
+	P3 = 0;
 	output_ctl = 1;
 }
 
 void main() using 0{
 	/* Timer 0 mode 1 */
 	int mics = to_micros(500);
+	int freq = 800;
+	unsigned char percent = 50;
 	init();
 	TMOD 	= 0x01;
 	
-	// 500Hz 50% duty cycle
-	if(duty_cycle(500,50)){
+	if(duty_cycle(freq ,percent)){
 		error_state();
 	}
 	
 	/* Port1 is used as input */
 	TR0 = 1;
-	led = 0;
+	led = 1;
 	while(1){
 		/*output_ctl*/
 		while (!adjust_mode){
 			/* Operate the timer using tv_on when it overflows, switch to tv_off */
-			output_half_cycle(&tv_off);
 			output_half_cycle(&tv_on);
+			output_half_cycle(&tv_off);
 		}
 		
 		// The loop is broken only when adjust_state is high
 		adjust_state();		
+		adjust_led = 0;
 	}
 }
-
 
 /*
 	Generates half the cycle of the square wave
 */
 void output_half_cycle(TIMER_VALS* tv){
-	
 	TF0 = 0;
 	TH0 = tv->th;
 	TL0 = tv->tl;
 	while(TF0 == 0);
-	led = ~led;		
-	
+	led = ~led;			
 }
-
 
 /*
 	Converts a frequency in hertz to us
@@ -99,16 +103,17 @@ int to_micros(int hertz){
 	Sets up the PWM generator
 */
 void adjust_state(){
-	
 	/* Read P1 -> convert from BCD */
-	unsigned char percent = from_bcd(P1);
+	unsigned char percent = from_bcd((unsigned char)P1);
+	/* Read the frequency */
+	int freq = from_bcd((unsigned char)P3)*10;	// Scale by 10 to provide a better range
 	
-	/* Setup the duty cycle */ 
-	if(duty_cycle(500,percent)){
+	if (percent > (unsigned char)100)error_state();
+	adjust_led = 1;
+	
+	if(duty_cycle(freq,percent)){
 		error_state();
 	}
-	
-	/* TODO: Read the frequency */
 }
 
 
@@ -118,9 +123,8 @@ void adjust_state(){
 unsigned char from_bcd(unsigned char val){
 	
 	/* value = (higher nibble*10) + (lower nibble) */
-	unsigned char unpacked = ((val & (unsigned char)0xFF)*10) + (val & (unsigned char)0xFF);
 	
-	if (unpacked > (unsigned char)100)error_state();
+	unsigned char unpacked = ( (val & (unsigned char)0xF0) >> NIBBLE_SIZE)*10 + (val & (unsigned char)0x0F);
 	return unpacked;
 }
 

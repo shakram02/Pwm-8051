@@ -1,7 +1,7 @@
-C51 COMPILER V9.54   MAIN                                                                  04/26/2017 22:05:46 PAGE 1   
+C51 COMPILER V9.56.0.0   MAIN                                                              04/27/2017 22:39:46 PAGE 1   
 
 
-C51 COMPILER V9.54, COMPILATION OF MODULE MAIN
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE MAIN
 OBJECT MODULE PLACED IN .\Objects\main.obj
 COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(1,SPEED) BROWSE DEBUG OBJECTEXTEND CODE PRINT(.\Listings
                     -\main.lst) TABS(2) OBJECT(.\Objects\main.obj)
@@ -12,273 +12,288 @@ line level    source
    2          
    3          #define PERIOD_MICROS (22.1184/12)  /* 8051 cycle time in microseconds */
    4          #define BYTE_SIZE 8
-   5          #define TO_MIRCOS 1000000 /* 10^6 to convert time in secs to micros */
-   6          #define FREQ_500HZ_MICROS 2000  /* 500Hz frequency in microseconds */
-   7          /* 
-   8          Adjust the frequencies using this constant, 
-   9          roughly approximated from listing file with assembly mapping
-  10          */
-  11          #define CALL_OVERHEAD 30 
-  12          sbit led = P2^0; /* Use P2.0 for your output generated signal. */
-  13          sbit error_led = P2^6;
-  14          sbit output_ctl = P2^7; /* P2.7 to turn the output signal ON and OFF */
-  15          
-  16          /* Adjust mode */
-  17          sbit adjust_mode= P2^5;
-  18          sbit adjust_led = P2^4;
-  19          
-  20          typedef struct TIMER_VALS{
-  21            unsigned char th;
-  22            unsigned char tl;
-  23          }TIMER_VALS;
-  24          
-  25          void adjust_state();
-  26          void output_half_cycle(TIMER_VALS* tv);
-  27          void error_state();
-  28          int calc_micros_config(int micros,TIMER_VALS* tv);
-  29          int to_micros(int);
-  30          char duty_cycle(int, unsigned char);
-  31          unsigned char from_bcd(unsigned char);
-  32            
-  33          /* ON/OFF values for duty cycle */
-  34          TIMER_VALS tv_on;
-  35          TIMER_VALS tv_off;
-  36          
-  37          void init(){
-  38   1        P1 = 0;
-  39   1        P2 = 0;
-  40   1        output_ctl = 1;
-  41   1      }
-  42          
-  43          void main() using 0{
-  44   1        /* Timer 0 mode 1 */
-  45   1        int mics = to_micros(500);
-  46   1        init();
-  47   1        TMOD  = 0x01;
-  48   1        
-  49   1        // 500Hz 80% duty cycle
-  50   1        if(duty_cycle(500,50)){
-  51   2          error_state();
-  52   2        }
-  53   1        
-  54   1        /* Port1 is used as input */
-C51 COMPILER V9.54   MAIN                                                                  04/26/2017 22:05:46 PAGE 2   
+   5          #define NIBBLE_SIZE 4
+   6          #define TO_MIRCOS 1000000 /* 10^6 to convert time in secs to micros */
+   7          #define FREQ_500HZ_MICROS 2000  /* 500Hz frequency in microseconds */
+   8          
+   9          /* 
+  10          Adjust the frequencies using this constant, 
+  11          roughly approximated from listing file with assembly mapping
+  12          */
+  13          #define CALL_OVERHEAD 30 
+  14          sbit led = P2^0; /* Use P2.0 for your output generated signal. */
+  15          sbit error_led = P2^6;
+  16          sbit output_ctl = P2^7; /* P2.7 to turn the output signal ON and OFF */
+  17          
+  18          /* Adjust mode */
+  19          sbit adjust_mode= P2^5;
+  20          sbit adjust_led = P2^4;
+  21          
+  22          typedef struct TIMER_VALS{
+  23            unsigned char th;
+  24            unsigned char tl;
+  25          }TIMER_VALS;
+  26          
+  27          void adjust_state();
+  28          void output_half_cycle(TIMER_VALS* tv);
+  29          void error_state();
+  30          int calc_micros_config(int micros,TIMER_VALS* tv);
+  31          int to_micros(int);
+  32          char duty_cycle(int, unsigned char);
+  33          unsigned char from_bcd(unsigned char);
+  34            
+  35          /* ON/OFF values for duty cycle */
+  36          TIMER_VALS tv_on;
+  37          TIMER_VALS tv_off;
+  38          
+  39          void init(){
+  40   1        P1 = 0;
+  41   1        P2 = 0;
+  42   1        /*
+  43   1          P3 will be used to take the input frequency, ranges 10~990 MHz -> (1 ~ 99) in BCD * 10
+  44   1        */
+  45   1        P3 = 0;
+  46   1        output_ctl = 1;
+  47   1      }
+  48          
+  49          void main() using 0{
+  50   1        /* Timer 0 mode 1 */
+  51   1        int mics = to_micros(500);
+  52   1        int freq = 800;
+  53   1        unsigned char percent = 50;
+  54   1        init();
+C51 COMPILER V9.56.0.0   MAIN                                                              04/27/2017 22:39:46 PAGE 2   
 
-  55   1        TR0 = 1;
-  56   1        led = 0;
-  57   1        while(1){
-  58   2          /*output_ctl*/
-  59   2          while (!adjust_mode){
-  60   3            /* Operate the timer using tv_on when it overflows, switch to tv_off */
-  61   3            output_half_cycle(&tv_off);
-  62   3            output_half_cycle(&tv_on);
-  63   3          }
-  64   2          
-  65   2          // The loop is broken only when adjust_state is high
-  66   2          adjust_state();   
-  67   2        }
-  68   1      }
-  69          
-  70          
-  71          /*
-  72            Generates half the cycle of the square wave
-  73          */
-  74          void output_half_cycle(TIMER_VALS* tv){
-  75   1        
-  76   1        TF0 = 0;
-  77   1        TH0 = tv->th;
-  78   1        TL0 = tv->tl;
-  79   1        while(TF0 == 0);
-  80   1        led = ~led;   
-  81   1        
-  82   1      }
-  83          
-  84          
-  85          /*
-  86            Converts a frequency in hertz to us
-  87          */
-  88          int to_micros(int hertz){
-  89   1        
-  90   1        /* Not working, values are zeroed */
-  91   1        double val = (1.0/(double)hertz);
-  92   1        unsigned long int micros = (unsigned long int)(val * TO_MIRCOS);
+  55   1        TMOD  = 0x01;
+  56   1        
+  57   1        if(duty_cycle(freq ,percent)){
+  58   2          error_state();
+  59   2        }
+  60   1        
+  61   1        /* Port1 is used as input */
+  62   1        TR0 = 1;
+  63   1        led = 1;
+  64   1        while(1){
+  65   2          /*output_ctl*/
+  66   2          while (!adjust_mode){
+  67   3            /* Operate the timer using tv_on when it overflows, switch to tv_off */
+  68   3            output_half_cycle(&tv_on);
+  69   3            output_half_cycle(&tv_off);
+  70   3          }
+  71   2          
+  72   2          // The loop is broken only when adjust_state is high
+  73   2          adjust_state();   
+  74   2          adjust_led = 0;
+  75   2        }
+  76   1      }
+  77          
+  78          /*
+  79            Generates half the cycle of the square wave
+  80          */
+  81          void output_half_cycle(TIMER_VALS* tv){
+  82   1        TF0 = 0;
+  83   1        TH0 = tv->th;
+  84   1        TL0 = tv->tl;
+  85   1        while(TF0 == 0);
+  86   1        led = ~led;     
+  87   1      }
+  88          
+  89          /*
+  90            Converts a frequency in hertz to us
+  91          */
+  92          int to_micros(int hertz){
   93   1        
-  94   1        return (int)micros;
-  95   1      }
-  96          
-  97          
-  98          /*
-  99            Sets up the PWM generator
- 100          */
- 101          void adjust_state(){
- 102   1        
- 103   1        /* Read P1 -> convert from BCD */
- 104   1        unsigned char percent = from_bcd(P1);
- 105   1        
- 106   1        /* Setup the duty cycle */ 
- 107   1        if(duty_cycle(500,percent)){
- 108   2          error_state();
- 109   2        }
+  94   1        /* Not working, values are zeroed */
+  95   1        double val = (1.0/(double)hertz);
+  96   1        unsigned long int micros = (unsigned long int)(val * TO_MIRCOS);
+  97   1        
+  98   1        return (int)micros;
+  99   1      }
+ 100          
+ 101          
+ 102          /*
+ 103            Sets up the PWM generator
+ 104          */
+ 105          void adjust_state(){
+ 106   1        /* Read P1 -> convert from BCD */
+ 107   1        unsigned char percent = from_bcd((unsigned char)P1);
+ 108   1        /* Read the frequency */
+ 109   1        int freq = from_bcd((unsigned char)P3)*10;  // Scale by 10 to provide a better range
  110   1        
- 111   1        /* TODO: Read the frequency */
- 112   1      }
- 113          
- 114          
- 115          /*
- 116            Unpack BCD value
-C51 COMPILER V9.54   MAIN                                                                  04/26/2017 22:05:46 PAGE 3   
+ 111   1        if (percent > (unsigned char)100)error_state();
+ 112   1        adjust_led = 1;
+ 113   1        
+ 114   1        if(duty_cycle(freq,percent)){
+ 115   2          error_state();
+ 116   2        }
+C51 COMPILER V9.56.0.0   MAIN                                                              04/27/2017 22:39:46 PAGE 3   
 
- 117          */
- 118          unsigned char from_bcd(unsigned char val){
- 119   1        
- 120   1        /* value = (higher nibble*10) + (lower nibble) */
- 121   1        unsigned char unpacked = ((val & (unsigned char)0xFF)*10) + (val & (unsigned char)0xFF);
- 122   1        
- 123   1        if (unpacked > (unsigned char)100)error_state();
- 124   1        return unpacked;
- 125   1      }
- 126          
- 127          
- 128          /*
- 129            Generates the timer values for a given
- 130            frequency and duty cycle
- 131          */
- 132          char duty_cycle(int freq, unsigned char percent){
- 133   1        
- 134   1        int micros = to_micros(freq);
- 135   1        
- 136   1        /* Simple way to avoid floating point arithmetic */
- 137   1        /* 0.2 * 1000 -> 20 * (1000/100) */
- 138   1        int high_micros  = percent * (micros/100);
+ 117   1      }
+ 118          
+ 119          
+ 120          /*
+ 121            Unpack BCD value
+ 122          */
+ 123          unsigned char from_bcd(unsigned char val){
+ 124   1        
+ 125   1        /* value = (higher nibble*10) + (lower nibble) */
+ 126   1        
+ 127   1        unsigned char unpacked = ( (val & (unsigned char)0xF0) >> NIBBLE_SIZE)*10 + (val & (unsigned char)0x0F);
+ 128   1        return unpacked;
+ 129   1      }
+ 130          
+ 131          
+ 132          /*
+ 133            Generates the timer values for a given
+ 134            frequency and duty cycle
+ 135          */
+ 136          char duty_cycle(int freq, unsigned char percent){
+ 137   1        
+ 138   1        int micros = to_micros(freq);
  139   1        
- 140   1        /* Use the chars to indicate error */
- 141   1        /* Calculate the ON / OFF time in us */
- 142   1        /* CALL_OVERHEAD is used to adjust the frequency */
- 143   1        char on  = calc_micros_config(high_micros - CALL_OVERHEAD,&tv_on);
- 144   1        int low_micros = micros - high_micros;  /* Use cached values, a bit poorer code readability */
- 145   1        
- 146   1        char off = calc_micros_config(low_micros  - CALL_OVERHEAD,&tv_off);
- 147   1        return on | off;
- 148   1      }
- 149          
- 150          
- 151          /* Calculates TH and TL values to generate a given delay in us */
- 152          int calc_micros_config(int micros,TIMER_VALS* tv){
- 153   1        
- 154   1        /* Get the number of increments required */
- 155   1        int incr = micros * PERIOD_MICROS;
- 156   1        int start_val;
+ 140   1        /* Simple way to avoid floating point arithmetic */
+ 141   1        /* 0.2 * 1000 -> 20 * (1000/100) */
+ 142   1        int high_micros  = percent * (micros/100);
+ 143   1        
+ 144   1        /* Use the chars to indicate error */
+ 145   1        /* Calculate the ON / OFF time in us */
+ 146   1        /* CALL_OVERHEAD is used to adjust the frequency */
+ 147   1        char on  = calc_micros_config(high_micros - CALL_OVERHEAD,&tv_on);
+ 148   1        int low_micros = micros - high_micros;  /* Use cached values, a bit poorer code readability */
+ 149   1        
+ 150   1        char off = calc_micros_config(low_micros  - CALL_OVERHEAD,&tv_off);
+ 151   1        return on | off;
+ 152   1      }
+ 153          
+ 154          
+ 155          /* Calculates TH and TL values to generate a given delay in us */
+ 156          int calc_micros_config(int micros,TIMER_VALS* tv){
  157   1        
- 158   1        if (OV)
- 159   1        {
- 160   2          /* Overflow, Indicate error */
- 161   2          OV = 0;
- 162   2          return -1;
- 163   2        }
- 164   1        
- 165   1        start_val = 0xFFFF - incr;
- 166   1        tv->tl = start_val & 0x00FF;  /* The LOW part of the delay */
- 167   1        tv->th = ((start_val & 0xFF00) >> BYTE_SIZE); /* The HIGH part of the delay */
- 168   1          
- 169   1        return 0;
- 170   1      }
- 171          
- 172          
- 173          /* Error state, do nothing until reset */
- 174          void error_state(){
- 175   1          TMOD = 0x00;
- 176   1          error_led = 1;
- 177   1          while(1);
- 178   1      }
-C51 COMPILER V9.54   MAIN                                                                  04/26/2017 22:05:46 PAGE 4   
+ 158   1        /* Get the number of increments required */
+ 159   1        int incr = micros * PERIOD_MICROS;
+ 160   1        int start_val;
+ 161   1        
+ 162   1        if (OV)
+ 163   1        {
+ 164   2          /* Overflow, Indicate error */
+ 165   2          OV = 0;
+ 166   2          return -1;
+ 167   2        }
+ 168   1        
+ 169   1        start_val = 0xFFFF - incr;
+ 170   1        tv->tl = start_val & 0x00FF;  /* The LOW part of the delay */
+ 171   1        tv->th = ((start_val & 0xFF00) >> BYTE_SIZE); /* The HIGH part of the delay */
+ 172   1          
+ 173   1        return 0;
+ 174   1      }
+ 175          
+ 176          
+ 177          /* Error state, do nothing until reset */
+ 178          void error_state(){
+C51 COMPILER V9.56.0.0   MAIN                                                              04/27/2017 22:39:46 PAGE 4   
+
+ 179   1          TMOD = 0x00;
+ 180   1          error_led = 1;
+ 181   1          while(1);
+ 182   1      }
+C51 COMPILER V9.56.0.0   MAIN                                                              04/27/2017 22:39:46 PAGE 5   
 
 ASSEMBLY LISTING OF GENERATED OBJECT CODE
 
 
              ; FUNCTION init (BEGIN)
-                                           ; SOURCE LINE # 37
-                                           ; SOURCE LINE # 38
-0000 759000            MOV     P1,#00H
                                            ; SOURCE LINE # 39
-0003 75A000            MOV     P2,#00H
                                            ; SOURCE LINE # 40
-0006 D2A7              SETB    output_ctl
+0000 759000            MOV     P1,#00H
                                            ; SOURCE LINE # 41
-0008 22                RET     
+0003 75A000            MOV     P2,#00H
+                                           ; SOURCE LINE # 45
+0006 75B000            MOV     P3,#00H
+                                           ; SOURCE LINE # 46
+0009 D2A7              SETB    output_ctl
+                                           ; SOURCE LINE # 47
+000B 22                RET     
              ; FUNCTION init (END)
 
              ; FUNCTION main (BEGIN)
 0000 C0D0              PUSH    PSW
 0002 75D000            MOV     PSW,#00H
-                                           ; SOURCE LINE # 43
-                                           ; SOURCE LINE # 45
+                                           ; SOURCE LINE # 49
+                                           ; SOURCE LINE # 51
 0005 7FF4              MOV     R7,#0F4H
 0007 7E01              MOV     R6,#01H
 0009 120000      R     LCALL   _to_micros
 000C 8E00        R     MOV     mics,R6
 000E 8F00        R     MOV     mics+01H,R7
-                                           ; SOURCE LINE # 46
-0010 120000      R     LCALL   init
-                                           ; SOURCE LINE # 47
-0013 758901            MOV     TMOD,#01H
-                                           ; SOURCE LINE # 50
-0016 7D32              MOV     R5,#032H
-0018 7FF4              MOV     R7,#0F4H
-001A 7E01              MOV     R6,#01H
-001C 120000      R     LCALL   _duty_cycle
-001F EF                MOV     A,R7
-0020 6003              JZ      ?C0002
-                                           ; SOURCE LINE # 51
-0022 120000      R     LCALL   error_state
                                            ; SOURCE LINE # 52
-0025         ?C0002:
+0010 750003      R     MOV     freq,#03H
+0013 750020      R     MOV     freq+01H,#020H
+                                           ; SOURCE LINE # 53
+0016 750032      R     MOV     percent,#032H
+                                           ; SOURCE LINE # 54
+0019 120000      R     LCALL   init
                                            ; SOURCE LINE # 55
-0025 D28C              SETB    TR0
-                                           ; SOURCE LINE # 56
-0027 C2A0              CLR     led
+001C 758901            MOV     TMOD,#01H
                                            ; SOURCE LINE # 57
-0029         ?C0005:
+001F AD00        R     MOV     R5,percent
+0021 AF00        R     MOV     R7,freq+01H
+0023 AE00        R     MOV     R6,freq
+0025 120000      R     LCALL   _duty_cycle
+0028 EF                MOV     A,R7
+0029 6003              JZ      ?C0002
+                                           ; SOURCE LINE # 58
+002B 120000      R     LCALL   error_state
                                            ; SOURCE LINE # 59
-0029 20A514            JB      adjust_mode,?C0006
-                                           ; SOURCE LINE # 61
-002C 7B00              MOV     R3,#00H
-002E 7A00        R     MOV     R2,#HIGH tv_off
-0030 7900        R     MOV     R1,#LOW tv_off
-0032 120000      R     LCALL   _output_half_cycle
+002E         ?C0002:
                                            ; SOURCE LINE # 62
+002E D28C              SETB    TR0
+                                           ; SOURCE LINE # 63
+0030 D2A0              SETB    led
+                                           ; SOURCE LINE # 64
+0032         ?C0005:
+                                           ; SOURCE LINE # 66
+0032 20A514            JB      adjust_mode,?C0006
+                                           ; SOURCE LINE # 68
 0035 7B00              MOV     R3,#00H
 0037 7A00        R     MOV     R2,#HIGH tv_on
 0039 7900        R     MOV     R1,#LOW tv_on
 003B 120000      R     LCALL   _output_half_cycle
-                                           ; SOURCE LINE # 63
-003E 80E9              SJMP    ?C0005
-0040         ?C0006:
-                                           ; SOURCE LINE # 66
-C51 COMPILER V9.54   MAIN                                                                  04/26/2017 22:05:46 PAGE 5   
+                                           ; SOURCE LINE # 69
+003E 7B00              MOV     R3,#00H
+C51 COMPILER V9.56.0.0   MAIN                                                              04/27/2017 22:39:46 PAGE 6   
 
-0040 120000      R     LCALL   adjust_state
-                                           ; SOURCE LINE # 67
-0043 80E4              SJMP    ?C0005
-                                           ; SOURCE LINE # 68
-0045 D0D0              POP     PSW
-0047 22                RET     
+0040 7A00        R     MOV     R2,#HIGH tv_off
+0042 7900        R     MOV     R1,#LOW tv_off
+0044 120000      R     LCALL   _output_half_cycle
+                                           ; SOURCE LINE # 70
+0047 80E9              SJMP    ?C0005
+0049         ?C0006:
+                                           ; SOURCE LINE # 73
+0049 120000      R     LCALL   adjust_state
+                                           ; SOURCE LINE # 74
+004C C2A4              CLR     adjust_led
+                                           ; SOURCE LINE # 75
+004E 80E2              SJMP    ?C0005
+                                           ; SOURCE LINE # 76
+0050 D0D0              POP     PSW
+0052 22                RET     
              ; FUNCTION main (END)
 
              ; FUNCTION _output_half_cycle (BEGIN)
-                                           ; SOURCE LINE # 74
+                                           ; SOURCE LINE # 81
 0000 8B00        R     MOV     tv,R3
 0002 8A00        R     MOV     tv+01H,R2
 0004 8900        R     MOV     tv+02H,R1
-                                           ; SOURCE LINE # 76
+                                           ; SOURCE LINE # 82
 0006 C28D              CLR     TF0
-                                           ; SOURCE LINE # 77
+                                           ; SOURCE LINE # 83
 0008 AB00        R     MOV     R3,tv
 000A AA00        R     MOV     R2,tv+01H
 000C A900        R     MOV     R1,tv+02H
 000E 120000      E     LCALL   ?C?CLDPTR
 0011 FF                MOV     R7,A
 0012 8F8C              MOV     TH0,R7
-                                           ; SOURCE LINE # 78
+                                           ; SOURCE LINE # 84
 0014 AB00        R     MOV     R3,tv
 0016 AA00        R     MOV     R2,tv+01H
 0018 A900        R     MOV     R1,tv+02H
@@ -288,20 +303,20 @@ ASSEMBLY LISTING OF GENERATED OBJECT CODE
 0023 FF                MOV     R7,A
 0024 8F8A              MOV     TL0,R7
 0026         ?C0008:
-                                           ; SOURCE LINE # 79
+                                           ; SOURCE LINE # 85
 0026 308DFD            JNB     TF0,?C0008
 0029         ?C0009:
-                                           ; SOURCE LINE # 80
+                                           ; SOURCE LINE # 86
 0029 B2A0              CPL     led
-                                           ; SOURCE LINE # 82
+                                           ; SOURCE LINE # 87
 002B 22                RET     
              ; FUNCTION _output_half_cycle (END)
 
              ; FUNCTION _to_micros (BEGIN)
-                                           ; SOURCE LINE # 88
+                                           ; SOURCE LINE # 92
 0000 8E00        R     MOV     hertz,R6
 0002 8F00        R     MOV     hertz+01H,R7
-                                           ; SOURCE LINE # 91
+                                           ; SOURCE LINE # 95
 0004 AC00        R     MOV     R4,hertz
 0006 AD00        R     MOV     R5,hertz+01H
 0008 EC                MOV     A,R4
@@ -309,6 +324,8 @@ ASSEMBLY LISTING OF GENERATED OBJECT CODE
 000C A804              MOV     R0,AR4
 000E A905              MOV     R1,AR5
 0010 AA06              MOV     R2,AR6
+C51 COMPILER V9.56.0.0   MAIN                                                              04/27/2017 22:39:46 PAGE 7   
+
 0012 AB07              MOV     R3,AR7
 0014 7F00              MOV     R7,#00H
 0016 7E00              MOV     R6,#00H
@@ -318,10 +335,8 @@ ASSEMBLY LISTING OF GENERATED OBJECT CODE
 001F 8F00        R     MOV     val+03H,R7
 0021 8E00        R     MOV     val+02H,R6
 0023 8D00        R     MOV     val+01H,R5
-C51 COMPILER V9.54   MAIN                                                                  04/26/2017 22:05:46 PAGE 6   
-
 0025 8C00        R     MOV     val,R4
-                                           ; SOURCE LINE # 92
+                                           ; SOURCE LINE # 96
 0027 7F00              MOV     R7,#00H
 0029 7E24              MOV     R6,#024H
 002B 7D74              MOV     R5,#074H
@@ -336,80 +351,97 @@ ASSEMBLY LISTING OF GENERATED OBJECT CODE
 003F 8E00        R     MOV     micros+02H,R6
 0041 8D00        R     MOV     micros+01H,R5
 0043 8C00        R     MOV     micros,R4
-                                           ; SOURCE LINE # 94
+                                           ; SOURCE LINE # 98
 0045 AE00        R     MOV     R6,micros+02H
 0047 AF00        R     MOV     R7,micros+03H
-                                           ; SOURCE LINE # 95
+                                           ; SOURCE LINE # 99
 0049         ?C0011:
 0049 22                RET     
              ; FUNCTION _to_micros (END)
 
              ; FUNCTION adjust_state (BEGIN)
-                                           ; SOURCE LINE # 101
-                                           ; SOURCE LINE # 104
+                                           ; SOURCE LINE # 105
+                                           ; SOURCE LINE # 107
 0000 AF90              MOV     R7,P1
 0002 120000      R     LCALL   _from_bcd
 0005 8F00        R     MOV     percent,R7
-                                           ; SOURCE LINE # 107
-0007 AD00        R     MOV     R5,percent
-0009 7FF4              MOV     R7,#0F4H
-000B 7E01              MOV     R6,#01H
-000D 120000      R     LCALL   _duty_cycle
-0010 EF                MOV     A,R7
-0011 6003              JZ      ?C0013
-                                           ; SOURCE LINE # 108
-0013 120000      R     LCALL   error_state
                                            ; SOURCE LINE # 109
+0007 AFB0              MOV     R7,P3
+0009 120000      R     LCALL   _from_bcd
+000C 7E0A              MOV     R6,#0AH
+000E EF                MOV     A,R7
+000F 8EF0              MOV     B,R6
+0011 A4                MUL     AB
+0012 FF                MOV     R7,A
+0013 AEF0              MOV     R6,B
+0015 8E00        R     MOV     freq,R6
+0017 8F00        R     MOV     freq+01H,R7
+                                           ; SOURCE LINE # 111
+0019 E500        R     MOV     A,percent
+001B D3                SETB    C
+001C 9464              SUBB    A,#064H
+001E 4003              JC      ?C0012
+0020 120000      R     LCALL   error_state
+0023         ?C0012:
                                            ; SOURCE LINE # 112
-0016         ?C0013:
-0016 22                RET     
+0023 D2A4              SETB    adjust_led
+                                           ; SOURCE LINE # 114
+0025 AD00        R     MOV     R5,percent
+0027 AF00        R     MOV     R7,freq+01H
+C51 COMPILER V9.56.0.0   MAIN                                                              04/27/2017 22:39:46 PAGE 8   
+
+0029 AE00        R     MOV     R6,freq
+002B 120000      R     LCALL   _duty_cycle
+002E EF                MOV     A,R7
+002F 6003              JZ      ?C0014
+                                           ; SOURCE LINE # 115
+0031 120000      R     LCALL   error_state
+                                           ; SOURCE LINE # 116
+                                           ; SOURCE LINE # 117
+0034         ?C0014:
+0034 22                RET     
              ; FUNCTION adjust_state (END)
 
              ; FUNCTION _from_bcd (BEGIN)
-                                           ; SOURCE LINE # 118
+                                           ; SOURCE LINE # 123
 0000 8F00        R     MOV     val,R7
-                                           ; SOURCE LINE # 121
+                                           ; SOURCE LINE # 127
 0002 E500        R     MOV     A,val
-0004 54FF              ANL     A,#0FFH
+0004 54F0              ANL     A,#0F0H
 0006 FF                MOV     R7,A
 0007 EF                MOV     A,R7
-0008 75F00A            MOV     B,#0AH
-000B A4                MUL     AB
-000C FF                MOV     R7,A
-000D E500        R     MOV     A,val
-000F 54FF              ANL     A,#0FFH
-0011 FE                MOV     R6,A
-0012 EF                MOV     A,R7
-0013 2E                ADD     A,R6
-0014 F500        R     MOV     unpacked,A
-C51 COMPILER V9.54   MAIN                                                                  04/26/2017 22:05:46 PAGE 7   
-
-                                           ; SOURCE LINE # 123
-0016 E500        R     MOV     A,unpacked
-0018 D3                SETB    C
-0019 9464              SUBB    A,#064H
-001B 4003              JC      ?C0014
-001D 120000      R     LCALL   error_state
-0020         ?C0014:
-                                           ; SOURCE LINE # 124
-0020 AF00        R     MOV     R7,unpacked
-                                           ; SOURCE LINE # 125
-0022         ?C0015:
-0022 22                RET     
+0008 C4                SWAP    A
+0009 540F              ANL     A,#0FH
+000B FF                MOV     R7,A
+000C EF                MOV     A,R7
+000D 75F00A            MOV     B,#0AH
+0010 A4                MUL     AB
+0011 FF                MOV     R7,A
+0012 E500        R     MOV     A,val
+0014 540F              ANL     A,#0FH
+0016 FE                MOV     R6,A
+0017 EF                MOV     A,R7
+0018 2E                ADD     A,R6
+0019 F500        R     MOV     unpacked,A
+                                           ; SOURCE LINE # 128
+001B AF00        R     MOV     R7,unpacked
+                                           ; SOURCE LINE # 129
+001D         ?C0015:
+001D 22                RET     
              ; FUNCTION _from_bcd (END)
 
              ; FUNCTION _duty_cycle (BEGIN)
-                                           ; SOURCE LINE # 132
+                                           ; SOURCE LINE # 136
 0000 8E00        R     MOV     freq,R6
 0002 8F00        R     MOV     freq+01H,R7
 0004 8D00        R     MOV     percent,R5
-                                           ; SOURCE LINE # 134
+                                           ; SOURCE LINE # 138
 0006 AF00        R     MOV     R7,freq+01H
 0008 AE00        R     MOV     R6,freq
 000A 120000      R     LCALL   _to_micros
 000D 8E00        R     MOV     micros,R6
 000F 8F00        R     MOV     micros+01H,R7
-                                           ; SOURCE LINE # 138
+                                           ; SOURCE LINE # 142
 0011 AE00        R     MOV     R6,micros
 0013 AF00        R     MOV     R7,micros+01H
 0015 7C00              MOV     R4,#00H
@@ -420,7 +452,9 @@ ASSEMBLY LISTING OF GENERATED OBJECT CODE
 0020 120000      E     LCALL   ?C?IMUL
 0023 8E00        R     MOV     high_micros,R6
 0025 8F00        R     MOV     high_micros+01H,R7
-                                           ; SOURCE LINE # 143
+C51 COMPILER V9.56.0.0   MAIN                                                              04/27/2017 22:39:46 PAGE 9   
+
+                                           ; SOURCE LINE # 147
 0027 E500        R     MOV     A,high_micros+01H
 0029 24E2              ADD     A,#0E2H
 002B FF                MOV     R7,A
@@ -432,7 +466,7 @@ ASSEMBLY LISTING OF GENERATED OBJECT CODE
 0035 7900        R     MOV     R1,#LOW tv_on
 0037 120000      R     LCALL   _calc_micros_config
 003A 8F00        R     MOV     on,R7
-                                           ; SOURCE LINE # 144
+                                           ; SOURCE LINE # 148
 003C C3                CLR     C
 003D E500        R     MOV     A,micros+01H
 003F 9500        R     SUBB    A,high_micros+01H
@@ -440,37 +474,35 @@ ASSEMBLY LISTING OF GENERATED OBJECT CODE
 0043 E500        R     MOV     A,micros
 0045 9500        R     SUBB    A,high_micros
 0047 F500        R     MOV     low_micros,A
-                                           ; SOURCE LINE # 146
+                                           ; SOURCE LINE # 150
 0049 E500        R     MOV     A,low_micros+01H
 004B 24E2              ADD     A,#0E2H
 004D FF                MOV     R7,A
 004E E500        R     MOV     A,low_micros
 0050 34FF              ADDC    A,#0FFH
-C51 COMPILER V9.54   MAIN                                                                  04/26/2017 22:05:46 PAGE 8   
-
 0052 FE                MOV     R6,A
 0053 7B00              MOV     R3,#00H
 0055 7A00        R     MOV     R2,#HIGH tv_off
 0057 7900        R     MOV     R1,#LOW tv_off
 0059 120000      R     LCALL   _calc_micros_config
 005C 8F00        R     MOV     off,R7
-                                           ; SOURCE LINE # 147
+                                           ; SOURCE LINE # 151
 005E E500        R     MOV     A,on
 0060 4500        R     ORL     A,off
 0062 FF                MOV     R7,A
-                                           ; SOURCE LINE # 148
+                                           ; SOURCE LINE # 152
 0063         ?C0016:
 0063 22                RET     
              ; FUNCTION _duty_cycle (END)
 
              ; FUNCTION _calc_micros_config (BEGIN)
-                                           ; SOURCE LINE # 152
+                                           ; SOURCE LINE # 156
 0000 8E00        R     MOV     micros,R6
 0002 8F00        R     MOV     micros+01H,R7
 0004 8B00        R     MOV     tv,R3
 0006 8A00        R     MOV     tv+01H,R2
 0008 8900        R     MOV     tv+02H,R1
-                                           ; SOURCE LINE # 155
+                                           ; SOURCE LINE # 159
 000A AC00        R     MOV     R4,micros
 000C AD00        R     MOV     R5,micros+01H
 000E EC                MOV     A,R4
@@ -483,18 +515,20 @@ ASSEMBLY LISTING OF GENERATED OBJECT CODE
 001D 120000      E     LCALL   ?C?CASTF
 0020 8E00        R     MOV     incr,R6
 0022 8F00        R     MOV     incr+01H,R7
-                                           ; SOURCE LINE # 158
-0024 30D207            JNB     OV,?C0017
-                                           ; SOURCE LINE # 159
-                                           ; SOURCE LINE # 161
-0027 C2D2              CLR     OV
                                            ; SOURCE LINE # 162
+C51 COMPILER V9.56.0.0   MAIN                                                              04/27/2017 22:39:46 PAGE 10  
+
+0024 30D207            JNB     OV,?C0017
+                                           ; SOURCE LINE # 163
+                                           ; SOURCE LINE # 165
+0027 C2D2              CLR     OV
+                                           ; SOURCE LINE # 166
 0029 7EFF              MOV     R6,#0FFH
 002B 7FFF              MOV     R7,#0FFH
 002D 22                RET     
-                                           ; SOURCE LINE # 163
+                                           ; SOURCE LINE # 167
 002E         ?C0017:
-                                           ; SOURCE LINE # 165
+                                           ; SOURCE LINE # 169
 002E C3                CLR     C
 002F 74FF              MOV     A,#0FFH
 0031 9500        R     SUBB    A,incr+01H
@@ -502,7 +536,7 @@ ASSEMBLY LISTING OF GENERATED OBJECT CODE
 0035 74FF              MOV     A,#0FFH
 0037 9500        R     SUBB    A,incr
 0039 F500        R     MOV     start_val,A
-                                           ; SOURCE LINE # 166
+                                           ; SOURCE LINE # 170
 003B AF00        R     MOV     R7,start_val+01H
 003D EF                MOV     A,R7
 003E 54FF              ANL     A,#0FFH
@@ -510,13 +544,11 @@ ASSEMBLY LISTING OF GENERATED OBJECT CODE
 0041 AB00        R     MOV     R3,tv
 0043 AA00        R     MOV     R2,tv+01H
 0045 A900        R     MOV     R1,tv+02H
-C51 COMPILER V9.54   MAIN                                                                  04/26/2017 22:05:46 PAGE 9   
-
 0047 758201            MOV     DPL,#01H
 004A 758300            MOV     DPH,#00H
 004D EF                MOV     A,R7
 004E 120000      E     LCALL   ?C?CSTOPTR
-                                           ; SOURCE LINE # 167
+                                           ; SOURCE LINE # 171
 0051 AE00        R     MOV     R6,start_val
 0053 7F00              MOV     R7,#00H
 0055 EE                MOV     A,R6
@@ -527,35 +559,37 @@ ASSEMBLY LISTING OF GENERATED OBJECT CODE
 005D A900        R     MOV     R1,tv+02H
 005F EF                MOV     A,R7
 0060 120000      E     LCALL   ?C?CSTPTR
-                                           ; SOURCE LINE # 169
+                                           ; SOURCE LINE # 173
 0063 E4                CLR     A
 0064 7E00              MOV     R6,#00H
 0066 7F00              MOV     R7,#00H
-                                           ; SOURCE LINE # 170
+                                           ; SOURCE LINE # 174
 0068         ?C0018:
 0068 22                RET     
              ; FUNCTION _calc_micros_config (END)
 
              ; FUNCTION error_state (BEGIN)
-                                           ; SOURCE LINE # 174
-                                           ; SOURCE LINE # 175
+                                           ; SOURCE LINE # 178
+                                           ; SOURCE LINE # 179
 0000 758900            MOV     TMOD,#00H
-                                           ; SOURCE LINE # 176
+                                           ; SOURCE LINE # 180
 0003 D2A6              SETB    error_led
 0005         ?C0019:
-                                           ; SOURCE LINE # 177
+                                           ; SOURCE LINE # 181
 0005 80FE              SJMP    ?C0019
 0007 22                RET     
              ; FUNCTION error_state (END)
 
+C51 COMPILER V9.56.0.0   MAIN                                                              04/27/2017 22:39:46 PAGE 11  
+
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =    470    ----
+   CODE SIZE        =    509    ----
    CONSTANT SIZE    =   ----    ----
    XDATA SIZE       =   ----    ----
    PDATA SIZE       =   ----    ----
-   DATA SIZE        =     42    ----
+   DATA SIZE        =     47    ----
    IDATA SIZE       =   ----    ----
    BIT SIZE         =   ----    ----
 END OF MODULE INFORMATION.
