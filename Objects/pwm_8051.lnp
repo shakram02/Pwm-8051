@@ -1,3 +1,0 @@
-".\Objects\main.obj" 
-TO ".\Objects\pwm_8051" 
-PRINT(".\Listings\pwm_8051.m51") RAMSIZE(256) 
